@@ -62,7 +62,7 @@ sub run_job {
     my $runnable_object = $self->_prepare_runnable_object();
     my $job             = $self->_prepare_analysis_job();
 
-    $job->param_init( 0, $self->params() );
+    $job->param_init( 1, $runnable_object->param_defaults(), $self->params() );
 
     $runnable_object->input_job($job);
     $runnable_object->life_cycle();
@@ -102,13 +102,16 @@ sub _prepare_analysis_job {
         'dataflow_output_id' => sub {
             my ( $ajob, $output_ids, $branch_name_or_code, $create_job_options )
               = @_;
-              
+
             push @$output_log,
               {
                 output_ids          => $output_ids,
                 branch_name_or_code => $branch_name_or_code,
                 create_job_options  => $create_job_options
-              };
+              }
+              if ($output_ids);
+              
+            return [];
         }
     );
 
@@ -184,7 +187,7 @@ sub dataflow_output_log {
 
 sub execute_writes {
     my $self = shift;
-    $self->{'_execture_writes'} = shift if (@_);
-    return $self->{'_execture_writes'};
+    $self->{'_execute_writes'} = shift if (@_);
+    return $self->{'_execute_writes'};
 }
 1;

@@ -6,7 +6,7 @@ use Test::More;
 
 my $test_harness = Bio::EnsEMBL::Hive::TestAnalysis->new(
     module_name => 'Bio::EnsEMBL::Hive::RunnableDB::LongMult::PartMultiply',
-    params      => { take_time => 1, a_multiplier => 1138, digit => 7 },
+    params      => { a_multiplier => 1138, digit => 7 },
     input_id    => {},
 );
 
