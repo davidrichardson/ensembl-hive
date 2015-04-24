@@ -3,11 +3,12 @@
 
 =head1 NAME
 
-    Bio::EnsEMBL::Hive::TestAnalysis
+    Bio::EnsEMBL::Hive::TestRunnable
 
 =head1 DESCRIPTION
 
-
+  A test harness to facilitate testing runnables.
+  See t/partMultiply.t for a simple example.
 
 =head1 LICENSE
 
@@ -33,7 +34,7 @@
 
 =cut
 
-package Bio::EnsEMBL::Hive::TestAnalysis;
+package Bio::EnsEMBL::Hive::TestRunnable;
 
 use strict;
 use warnings;
@@ -41,6 +42,7 @@ use warnings;
 use Bio::EnsEMBL::Hive::AnalysisJob;
 use Bio::EnsEMBL::Hive::Utils ('load_file_or_module');
 use Carp;
+use Data::Dumper;
 
 sub new {
     my $class = shift @_;
@@ -56,22 +58,70 @@ sub new {
     return $self;
 }
 
-sub run_job {
+=head2 run
+
+  Description: Creates and runs the Runnable module names in the 'module' property, using the data in the 'params' and 'input_id' properties
+  Returntype : hashref
+  Caller: test scripts
+=cut
+
+sub run {
     my $self = shift;
 
     my $runnable_object = $self->_prepare_runnable_object();
     my $job             = $self->_prepare_analysis_job();
 
-    $job->param_init( 1, $runnable_object->param_defaults(), $self->params() );
+    $job->param_init( 1, $runnable_object->param_defaults(),
+        $self->params() || {}, $self->input_id || {} );
 
     $runnable_object->input_job($job);
     $runnable_object->life_cycle();
 
     $self->died(1) if ( $job->died_somewhere() );
 
-    $runnable_object->cleanup_worker_temp_directory() if ( $self->cleanup() );
+    $runnable_object->cleanup_worker_temp_directory();
 }
 
+=head2 diagnostics
+
+  Description: Returns a hashref of objects useful when debugging
+               a runnable:
+                - parameters
+                - input_id
+                - runnable
+                - AnalaysisJob
+  Returntype : hashref
+  Caller: test scripts
+=cut
+
+sub diagnostics {
+    my $self = shift;
+    return {
+        params   => $self->params(),
+        input_id => $self->input_id(),
+        runnable => $self->runnable(),
+        job      => $self->job(),
+    };
+}
+
+=head2 dump_diagnostics
+
+  Description: Print the results of diagnostics to the default file handle with Data::Dumper
+  Caller: test scripts
+=cut
+
+sub dump_diagnostics {
+    my $self = shift;
+    print "TestRunnable Diagnostics:$/",Dumper($self->diagnostics());
+}
+
+
+=head2 _prepare_runnable_object
+
+  Description: Creates and prepares the runnable
+  Returntype : instance of the runnable module
+  Caller: $self->run
+=cut
 sub _prepare_runnable_object {
     my $self = shift;
 
@@ -89,6 +139,13 @@ sub _prepare_runnable_object {
     return $runnable_object;
 }
 
+=head2 _prepare_analysis_job
+
+  Description: Creates and prepares the AnalysisJob needed to run the Runnable
+               Reroutes calls to dataflow_output_id to log the values sent to it
+  Returntype : Bio::EnsEMBL::Hive::AnalysisJob
+  Caller: $self->run
+=cut
 sub _prepare_analysis_job {
     my $self = shift;
 
@@ -110,7 +167,7 @@ sub _prepare_analysis_job {
                 create_job_options  => $create_job_options
               }
               if ($output_ids);
-              
+
             return [];
         }
     );
@@ -122,6 +179,11 @@ sub _prepare_analysis_job {
     return $job;
 }
 
+=head2 _monkey_patch_instance
+
+  Description: Function to patch a subroutine onto an existing object
+  Caller: $self->run
+=cut
 sub _monkey_patch_instance {
     my ( $instance, $method, $code ) = @_;
     my $package = ref($instance) . '::MonkeyPatch';
@@ -161,12 +223,6 @@ sub debug {
     return $self->{'_debug'};
 }
 
-sub cleanup {
-    my $self = shift;
-    $self->{'_cleanup'} = shift if (@_);
-    return $self->{'_cleanup'};
-}
-
 sub params {
     my $self = shift;
     $self->{'_params'} = shift if (@_);
@@ -185,9 +241,4 @@ sub dataflow_output_log {
     return $self->{'_dataflow_output_log'};
 }
 
-sub execute_writes {
-    my $self = shift;
-    $self->{'_execute_writes'} = shift if (@_);
-    return $self->{'_execute_writes'};
-}
 1;
